@@ -6,6 +6,7 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 import cmocean
+import cmdline_provenance as cmdprov
 
 
 def convert_pr_units(darray, units=1):
@@ -19,7 +20,7 @@ def convert_pr_units(darray, units=1):
                    1 = mm/day (converts units to mm/day )
     """
 
-    assert darray.units == 'kg m-2 s-1' , "Script assumes units in precipitation file are in kg m-2 s-1"
+    assert darray.units == 'kg m-2 s-1', "Script assumes units in precipitation file are in kg m-2 s-1"
     if units == 1:
         darray.data = darray.data * 86400
         darray.attrs['units'] = 'mm/day'
@@ -41,13 +42,38 @@ def apply_mask(darray, sftlf_file, realm):
 
     dset = xr.open_dataset(sftlf_file)
 
-    assert realm.lower() in ['land', 'ocean'], """Valid realms are 'land' or 'ocean' """
+    assert realm.lower() in [
+        'land', 'ocean'], """Valid realms are 'land' or 'ocean' """
     if realm == 'land':
         masked_darray = darray.where(dset['sftlf'].data < 50)
     else:
         masked_darray = darray.where(dset['sftlf'].data > 50)
 
     return masked_darray
+
+def get_log_and_key(pr_file, history_attr, plot_type):
+   """Get key and command line log for image metadata.
+  
+   Different image formats allow different metadata keys.
+  
+   Args:
+     pr_file (str): Input precipitation file
+     history_attr (str): History attribute from pr_file
+     plot_type (str): File format for output image
+  
+   """
+   
+   valid_keys = {'png': 'History',
+                 'pdf': 'Title',
+                 'eps': 'Creator',
+                 'ps' : 'Creator'}    
+
+   assert plot_type in valid_keys.keys(), f"Image format not one of: {*[*valid_keys],}"
+   log_key = valid_keys[plot_type]
+   new_log = cmdprov.new_log(infile_history={pr_file: history_attr})
+   new_log = new_log.replace('\n', ' END ')
+   
+   return log_key, new_log
 
 
 def create_plot(clim, model, season, gridlines=False, levels=None):
@@ -102,7 +128,9 @@ def main(inargs):
 
     create_plot(clim, dset.attrs['source_id'], inargs.season,
                 gridlines=inargs.gridlines, levels=inargs.cbar_levels)
-    plt.savefig(inargs.output_file, dpi=200)
+
+    log_key, new_log = get_log_and_key(inargs.pr_file, dset.attrs['history'], inargs.output_file.split('.')[-1])
+    plt.savefig(inargs.output_file, metadata={log_key: new_log}, dpi=200)   
 
 
 if __name__ == '__main__':
