@@ -18,6 +18,8 @@ def convert_pr_units(darray, units=1):
                    0 = kg m-2 s-1 (does not convert units) 
                    1 = mm/day (converts units to mm/day )
     """
+
+    assert darray.units == 'kg m-2 s-1' , "Script assumes units in precipitation file are in kg m-2 s-1"
     if units == 1:
         darray.data = darray.data * 86400
         darray.attrs['units'] = 'mm/day'
@@ -39,8 +41,7 @@ def apply_mask(darray, sftlf_file, realm):
 
     dset = xr.open_dataset(sftlf_file)
 
-    assert realm in [
-        'land', 'ocean'], """Valid realms are 'land' or 'ocean' """
+    assert realm.lower() in ['land', 'ocean'], """Valid realms are 'land' or 'ocean' """
     if realm == 'land':
         masked_darray = darray.where(dset['sftlf'].data < 50)
     else:
